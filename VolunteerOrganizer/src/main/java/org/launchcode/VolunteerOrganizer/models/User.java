@@ -14,6 +14,10 @@ import java.util.List;
 @Entity
 public class User {
 
+    private static final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+    public static final User DEFAULT_USER = createDefaultUser();
+    private static final int DEFAULT_USERID = 999;
+
     @Id
     @GeneratedValue
     private int id;
@@ -24,7 +28,6 @@ public class User {
     private String pwHash;
     private String accountType;
     private String organizationName;
-    private static final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
     @ManyToMany(mappedBy = "volunteers")
     private final List<Opportunity> opportunities = new ArrayList<>();
@@ -41,6 +44,12 @@ public class User {
         this.pwHash = encoder.encode(pwHash);
         this.accountType = accountType;
 
+    }
+
+    private User(String username) {
+        this.username = username;
+        this.id = User.DEFAULT_USERID;
+        this.pwHash = "some_default_value";
     }
 
     public List<Opportunity> getOpportunitiesForUser(OpportunityRepository opportunityRepository) {
@@ -79,5 +88,16 @@ public class User {
 
     public boolean isMatchingPassword(String password) {
         return encoder.matches(password, pwHash);
+    }
+
+    private static User createDefaultUser() {
+        return new User("Unknown User");
+    }
+
+    public static boolean isDefaultUser(User user) {
+        if(user == null) {
+            throw new IllegalArgumentException("user must not be null");
+        }
+        return user.getId() == User.DEFAULT_USERID;
     }
 }

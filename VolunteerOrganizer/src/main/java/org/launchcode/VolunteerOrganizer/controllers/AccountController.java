@@ -6,14 +6,12 @@ import javax.servlet.http.HttpSession;
 import org.launchcode.VolunteerOrganizer.models.Opportunity;
 import org.launchcode.VolunteerOrganizer.models.User;
 import org.launchcode.VolunteerOrganizer.models.data.OpportunityRepository;
-import org.launchcode.VolunteerOrganizer.models.data.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.launchcode.VolunteerOrganizer.service.UserService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -21,19 +19,19 @@ import java.util.Optional;
 @Controller
 public class AccountController {
 
-    @Autowired
-    private OpportunityRepository opportunityRepository;
+    private final OpportunityRepository opportunityRepository;
+    private final UserService userService;
 
-    @Autowired
-    UserRepository userRepository;
-
-    @Autowired
-    AuthenticationController authenticationController;
+    private AccountController(OpportunityRepository opportunityRepository,
+                              UserService userService) {
+        this.opportunityRepository = opportunityRepository;
+        this.userService = userService;
+    }
 
     @GetMapping("")
     public String displayAccount(HttpServletRequest request, Model model) {
-        HttpSession session = request.getSession();
-        User user = authenticationController.getUserFromSession(session);
+        User user = userService.of(request.getSession())
+                .orElseThrow(() -> new RuntimeException("Unauthorized Access"));
         model.addAttribute("title", "Account Details");
         model.addAttribute("user", user);
         return "account";
@@ -42,14 +40,15 @@ public class AccountController {
     @GetMapping("/delete")
     public String processDeleteAccount(HttpServletRequest request){
         HttpSession session = request.getSession();
-        User user = authenticationController.getUserFromSession(session);
+        User user = userService.of(session)
+                .orElseThrow(() -> new RuntimeException("Unauthorized Access"));
 
         if (user.getAccountType().equals("organization")) {
             List<Opportunity> opportunities = user.getOpportunitiesForUser(opportunityRepository);
             for (Opportunity opportunity : opportunities) {
-                Optional optOpportunity = opportunityRepository.findById(opportunity.getId());
+                Optional<Opportunity> optOpportunity = opportunityRepository.findById(opportunity.getId());
                 if (optOpportunity.isPresent()) {
-                    Opportunity opportunityToDelete = (Opportunity) optOpportunity.get(); 
+                    Opportunity opportunityToDelete = optOpportunity.get();
                     opportunityRepository.delete(opportunityToDelete);
                 }   
             }
@@ -60,9 +59,10 @@ public class AccountController {
                     opportunity.removeVolunteer(user);
                 }
             }
+
         }
         session.invalidate();
-        userRepository.delete(user);
+        userService.delete(user);
         return "redirect:/";
     }
 }

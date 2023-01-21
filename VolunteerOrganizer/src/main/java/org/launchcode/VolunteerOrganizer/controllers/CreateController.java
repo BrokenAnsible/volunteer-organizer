@@ -3,7 +3,7 @@ package org.launchcode.VolunteerOrganizer.controllers;
 import org.launchcode.VolunteerOrganizer.models.Opportunity;
 import org.launchcode.VolunteerOrganizer.models.User;
 import org.launchcode.VolunteerOrganizer.models.data.OpportunityRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.launchcode.VolunteerOrganizer.service.UserService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.Errors;
@@ -12,27 +12,26 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
-import javax.net.ssl.HandshakeCompletedEvent;
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
 import javax.validation.Valid;
-import java.util.ArrayList;
-import java.util.List;
 
 @Controller
 @RequestMapping("create")
 public class CreateController {
 
-    @Autowired
-    private OpportunityRepository opportunityRepository;
+    private final OpportunityRepository opportunityRepository;
+    private final UserService userService;
 
-    @Autowired
-    AuthenticationController authenticationController;
+    public CreateController(OpportunityRepository opportunityRepository,
+                            UserService userService) {
+        this.opportunityRepository = opportunityRepository;
+        this.userService = userService;
+    }
 
     @GetMapping("")
     public String renderCreateOpportunityForm(HttpServletRequest request, Model model){
-        HttpSession session = request.getSession();
-        User user = authenticationController.getUserFromSession(session);
+        User user = userService.of(request.getSession())
+                .orElseThrow(() -> new RuntimeException("Unauthorized Access"));
         model.addAttribute("title", "Create Volunteer Opportunity:");
         model.addAttribute("opportunity", new Opportunity());
         model.addAttribute("user", user);
@@ -41,8 +40,8 @@ public class CreateController {
 
     @PostMapping("")
     public String processCreateOpportunityForm(HttpServletRequest request,@ModelAttribute @Valid Opportunity opportunity, Errors errors, Model model){
-        HttpSession session = request.getSession();
-        User user = authenticationController.getUserFromSession(session);
+        User user = userService.of(request.getSession())
+                .orElseThrow(() -> new RuntimeException("Unauthorized Access"));
         opportunity.setCreatorUserId(user.getId());
         if(errors.hasErrors()) {
             model.addAttribute("title", "Create Volunteer Opportunity:");

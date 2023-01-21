@@ -1,9 +1,7 @@
 package org.launchcode.VolunteerOrganizer;
 
-import org.launchcode.VolunteerOrganizer.controllers.AuthenticationController;
 import org.launchcode.VolunteerOrganizer.models.User;
-import org.launchcode.VolunteerOrganizer.models.data.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.launchcode.VolunteerOrganizer.service.UserService;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import javax.servlet.http.HttpServletRequest;
@@ -12,18 +10,19 @@ import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 public class AuthenticationFilter implements HandlerInterceptor {
 
-    @Autowired
-    UserRepository userRepository;
+    private final UserService userService;
 
-    @Autowired
-    AuthenticationController authenticationController;
+    public AuthenticationFilter(UserService userService) {
+        this.userService = userService;
+    }
 
     private static final List<String> whitelist = Arrays.asList("/", "/login", "/logout", "/signup/volunteer", "/signup/organization", "src/main/resources/static/**");
     private static final List<String> organizationUserRequired = Arrays.asList("/create", "/manage");
-    private static final List<String> volunteerUserRequired = Arrays.asList("/volunteer");
+    private static final List<String> volunteerUserRequired = List.of("/volunteer");
 
     private static boolean isWhitelisted(String path) {
         for (String pathRoot : whitelist) {
@@ -61,18 +60,17 @@ public class AuthenticationFilter implements HandlerInterceptor {
         }
 
         HttpSession session = request.getSession();
-        User user = authenticationController.getUserFromSession(session);
-
-        if (user != null) {
+        Optional<User> user = userService.of(session);
+        if (user.isPresent()) {
             if (isOrganizationUserRequired(request.getRequestURI())){
-                if (user.getAccountType().equals("organization")) {
+                if (user.get().getAccountType().equals("organization")) {
                     return true;
                 } else {
                     response.sendRedirect("/home/redirect/access-denied");
                     return false;
                 }
             } else if (isVolunteerUserRequired(request.getRequestURI())){
-                if (user.getAccountType().equals("volunteer")) {
+                if (user.get().getAccountType().equals("volunteer")) {
                     return true;
                 } else {
                     response.sendRedirect("/home/redirect/access-denied");

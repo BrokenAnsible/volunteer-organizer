@@ -3,30 +3,32 @@ package org.launchcode.VolunteerOrganizer.controllers;
 import org.launchcode.VolunteerOrganizer.models.Opportunity;
 import org.launchcode.VolunteerOrganizer.models.User;
 import org.launchcode.VolunteerOrganizer.models.data.OpportunityRepository;
-import org.launchcode.VolunteerOrganizer.models.dto.OpportunityUserDTO;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.launchcode.VolunteerOrganizer.service.UserService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Controller
 
 public class ListController {
-    @Autowired
-    private OpportunityRepository opportunityRepository;
-    @Autowired
-    AuthenticationController authenticationController;
+
+    private final OpportunityRepository opportunityRepository;
+    private final UserService userService;
+
+    public ListController(OpportunityRepository opportunityRepository,
+                          UserService userService) {
+        this.opportunityRepository = opportunityRepository;
+        this.userService = userService;
+    }
 
     @GetMapping("list")
     public String list(HttpServletRequest request, Model model) {
-        HttpSession session = request.getSession();
-        User user = authenticationController.getUserFromSession(session);
+        User user = userService.of(request.getSession())
+                .orElseThrow(() -> new RuntimeException("Unauthorized Access"));
         List<String> orgNames = new ArrayList<>();
         List<Opportunity> opportunitiesList = new ArrayList<>();
         Iterable<Opportunity> allOpportunity = opportunityRepository.findAll();
@@ -43,8 +45,8 @@ public class ListController {
 
     @GetMapping("list-opportunity/{orgName}")
     public String listOpportunies(HttpServletRequest request, Model model, @PathVariable String orgName) {
-        HttpSession session = request.getSession();
-        User user = authenticationController.getUserFromSession(session);
+        User user = userService.of(request.getSession())
+                .orElseThrow(() -> new RuntimeException("Unauthorized Access"));
         List<Opportunity> opportunity= opportunityRepository.findByName(orgName);
         model.addAttribute("user", user );
         model.addAttribute("heading", "Opportunities for: "+ orgName );

@@ -1,10 +1,9 @@
 package org.launchcode.VolunteerOrganizer.controllers;
 
 import org.launchcode.VolunteerOrganizer.models.User;
-import org.launchcode.VolunteerOrganizer.models.data.UserRepository;
 import org.launchcode.VolunteerOrganizer.models.dto.CreateAccountDTO;
 import org.launchcode.VolunteerOrganizer.models.dto.LoginFormDTO;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.launchcode.VolunteerOrganizer.service.UserService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.Errors;
@@ -21,33 +20,18 @@ import java.util.Optional;
 @Controller
 public class AuthenticationController {
 
-    @Autowired
-    UserRepository userRepository;
+    private final UserService userService;
 
-    private static final String userSessionKey = "userId";
-    private static final String userAccountType = "accountType";
-
-    public User getUserFromSession(HttpSession session) {
-        Integer userId = (Integer) session.getAttribute(userSessionKey);
-        if (userId == null) {
-            return null;
-        }
-
-        Optional<User> user = userRepository.findById(userId);
-
-        if (user.isEmpty()) {
-            return null;
-        }
-
-        return user.get();
+    public AuthenticationController(UserService userService) {
+        this.userService = userService;
     }
-
 
     private static void setUserInSession(HttpSession session, User user) {
-        session.setAttribute(userSessionKey, user.getId());
-        session.setAttribute(userAccountType, user.getAccountType());
+        session.setAttribute(UserService.USER_SESSION_KEY, user.getId());
+        session.setAttribute(UserService.USER_ACCT_TYPE, user.getAccountType());
     }
 
+    @SuppressWarnings("unused")
     @GetMapping("/")
     public String index(Model model) {
 
@@ -79,9 +63,8 @@ public class AuthenticationController {
             return "signup";
         }
 
-        User theUser = userRepository.findByUsername(createAccountDTO.getUsername());
-
-        if (theUser != null) {
+        Optional<User> theUser = userService.findByUsername(createAccountDTO.getUsername());
+        if (theUser.isPresent()) {
             errors.rejectValue("username", "user.invalid", "The given username already exists");
             model.addAttribute("title", title);
             return "signup";
@@ -100,7 +83,7 @@ public class AuthenticationController {
         User newUser = new User(createAccountDTO.getUsername(), createAccountDTO.getPassword(),
                 createAccountDTO.getAccountType(), createAccountDTO.getOrganizationName());
 
-        userRepository.save(newUser);
+        userService.save(newUser);
         setUserInSession(request.getSession(), newUser);
         return "redirect:/home";
     }
@@ -122,16 +105,16 @@ public class AuthenticationController {
             return "login";
         }
 
-        User theUser = userRepository.findByUsername(loginFormDTO.getUsername());
+        Optional<User> theUser = userService.findByUsername(loginFormDTO.getUsername());
         String password = loginFormDTO.getPassword();
 
-        if (theUser == null || !theUser.isMatchingPassword(password)) {
+        if (theUser.isEmpty() || !theUser.get().isMatchingPassword(password)) {
             model.addAttribute("invalidLoginMessage", "Invalid Username and Password Combination");
             model.addAttribute("title", "Log In");
             return "login";
         }
 
-        setUserInSession(request.getSession(), theUser);
+        setUserInSession(request.getSession(), theUser.get());
 
         return "redirect:/home";
     }

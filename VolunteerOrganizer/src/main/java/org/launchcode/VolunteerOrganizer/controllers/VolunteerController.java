@@ -4,13 +4,12 @@ import org.launchcode.VolunteerOrganizer.models.Opportunity;
 import org.launchcode.VolunteerOrganizer.models.User;
 import org.launchcode.VolunteerOrganizer.models.data.OpportunityRepository;
 import org.launchcode.VolunteerOrganizer.models.dto.OpportunityUserDTO;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.launchcode.VolunteerOrganizer.service.UserService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
 
 import java.util.ArrayList;
 import java.util.Optional;
@@ -19,16 +18,19 @@ import java.util.Optional;
 @Controller
 public class VolunteerController {
 
-    @Autowired
-    private OpportunityRepository opportunityRepository;
+    private final OpportunityRepository opportunityRepository;
+    private final UserService userService;
 
-    @Autowired
-    AuthenticationController authenticationController;
+    public VolunteerController(OpportunityRepository opportunityRepository,
+                               UserService userService) {
+        this.opportunityRepository = opportunityRepository;
+        this.userService = userService;
+    }
 
     @GetMapping("/registered-opportunities")
     public String displayRegisteredOpportunities(HttpServletRequest request, Model model) {
-        HttpSession session = request.getSession();
-        User user = authenticationController.getUserFromSession(session);
+        User user = userService.of(request.getSession())
+                .orElseThrow(() -> new RuntimeException("Unauthorized Access"));
         model.addAttribute("user", user);
 
         Iterable<Opportunity> allOpportunities = opportunityRepository.findAll();
@@ -42,16 +44,14 @@ public class VolunteerController {
 
         if (!registeredOpportunities.isEmpty()) {
             model.addAttribute("opportunities", registeredOpportunities);
-            return "registered-opportunities";
-        } else {
-            return "registered-opportunities";
         }
+        return "registered-opportunities";
     }
 
     @GetMapping("/sign-up")
     public String volunteerSignup(HttpServletRequest request, @RequestParam Integer opportunityId, Model model){
-        HttpSession session = request.getSession();
-        User user = authenticationController.getUserFromSession(session);
+        User user = userService.of(request.getSession())
+                .orElseThrow(() -> new RuntimeException("Unauthorized Access"));
         model.addAttribute("user", user);
 
         Optional<Opportunity> result = opportunityRepository.findById(opportunityId);
@@ -82,8 +82,8 @@ public class VolunteerController {
     
     @GetMapping("/unregister")
     public String volunteerUnregister(HttpServletRequest request, @RequestParam Integer opportunityId, Model model){
-        HttpSession session = request.getSession();
-        User user = authenticationController.getUserFromSession(session);
+        User user = userService.of(request.getSession())
+                .orElseThrow(() -> new RuntimeException("Unauthorized Access"));
         model.addAttribute("user", user);
 
         Optional<Opportunity> result = opportunityRepository.findById(opportunityId);
